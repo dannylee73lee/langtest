@@ -40,10 +40,6 @@ def create_chatbot():
         except Exception as e:
             raise RuntimeError(f"모델 응답 처리 중 오류 발생: {str(e)}")
     
-    # 조건 체크 함수
-    def should_continue(state: ChatState) -> bool:
-        return state.current_step != "end"
-    
     # StateGraph 생성
     workflow = StateGraph(ChatState)
     
@@ -53,8 +49,8 @@ def create_chatbot():
     # 시작점 설정
     workflow.set_entry_point("process_message")
     
-    # 조건부 엣지 추가
-    workflow.add_edge("process_message", "process_message", should_continue)
+    # 엣지 추가 - 수정된 부분
+    workflow.add_edge("process_message", "process_message")
     
     # 종료 조건 설정
     workflow.set_finish_point("process_message")
