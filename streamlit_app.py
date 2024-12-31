@@ -1,5 +1,5 @@
 import streamlit as st
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, END  # END를 추가로 import
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
@@ -21,14 +21,12 @@ if "messages" not in st.session_state:
         AIMessage(content="안녕하세요! 저는 LangGraph 기반 챗봇입니다. 질문이 있다면 언제든 말씀해주세요!")
     ]
 
-# 챗봇 생성 함수
 def create_chatbot():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
     model = ChatOpenAI(api_key=api_key)
     
-    # 상태 처리 함수
     def process_message(state: ChatState) -> ChatState:
         try:
             if state.current_step == "start":
@@ -45,16 +43,9 @@ def create_chatbot():
     def is_start(state: ChatState) -> bool:
         return state.current_step == "start"
     
-    # StateGraph 생성
     workflow = StateGraph(ChatState)
-    
-    # 노드 추가
     workflow.add_node("process_message", process_message)
-    
-    # 시작점 설정
     workflow.set_entry_point("process_message")
-    
-    # 조건부 라우팅
     workflow.add_conditional_edges(
         "process_message",
         is_start,
@@ -66,9 +57,6 @@ def create_chatbot():
     
     return workflow.compile()
 
-
-
-# 메인 함수
 def main():
     st.title("LangGraph 챗봇")
     
@@ -86,9 +74,11 @@ def main():
     # 사용자 입력 처리
     if prompt := st.chat_input("메시지를 입력하세요"):
         user_message = HumanMessage(content=prompt)
+        st.session_state.messages.append(user_message)
+        
         state = ChatState(
-            messages=st.session_state.messages + [user_message],
-            current_step="start"  # 상태를 start로 설정
+            messages=st.session_state.messages,
+            current_step="start"
         )
         
         try:
@@ -99,6 +89,5 @@ def main():
         except Exception as e:
             st.error(f"메시지 처리 중 오류가 발생했습니다: {str(e)}")
 
-# 실행
 if __name__ == "__main__":
     main()
