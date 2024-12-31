@@ -5,6 +5,11 @@ from langchain_openai import ChatOpenAI
 import json
 from datetime import datetime
 
+from dotenv import load_dotenv
+import os
+
+load_dotenv()  # .env 파일 로드
+
 # 세션 상태 초기화
 if "messages" not in st.session_state:
     st.session_state.messages = []
