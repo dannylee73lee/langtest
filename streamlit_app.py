@@ -1,47 +1,47 @@
 import streamlit as st
-from langgraph.graph import Graph, StateGraph
+from langgraph.graph import StateGraph
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import os
+from typing import Dict, TypedDict
 
-load_dotenv()  # .env 파일 로드
+load_dotenv()
+
+# 상태 타입 정의
+class State(TypedDict):
+    messages: list
+    current_step: str
 
 # 기본 설정
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 def create_chatbot():
-    # LangGraph 설정
     model = ChatOpenAI()
     
-    def process_message(state):
+    def process_message(state: State) -> State:
         messages = state["messages"]
         response = model.invoke(messages)
-        return {"messages": messages + [response]}
+        return {"messages": messages + [response], "current_step": "processed"}
     
-    # StateGraph 사용 (Graph 대신)
-    workflow = StateGraph(initial_state={"messages": [], "current_step": "start"})
+    # StateGraph 생성
+    workflow = StateGraph()
     
     # 노드 추가
     workflow.add_node("process_message", process_message)
     
-    # 시작점 정의 (이 부분이 중요합니다)
+    # 시작점 설정
     workflow.set_entry_point("process_message")
     
-    # 조건부 엣지 추가
-    def should_continue(state):
-        return "process_message"
-    
     # 엣지 추가
-    workflow.add_edge("process_message", should_continue)
+    workflow.add_edge("process_message", "process_message")
     
     return workflow.compile()
 
 def main():
     st.title("LangGraph 챗봇")
     
-    # 챗봇 초기화
     chatbot = create_chatbot()
     
     # 메시지 표시
@@ -49,24 +49,24 @@ def main():
         with st.chat_message("user" if isinstance(message, HumanMessage) else "assistant"):
             st.write(message.content)
     
-    # 사용자 입력
     if prompt := st.chat_input("메시지를 입력하세요"):
-        # 사용자 메시지 추가
         user_message = HumanMessage(content=prompt)
         st.session_state.messages.append(user_message)
         
-        # 챗봇 응답 생성
-        state = {
+        # 초기 상태 설정
+        state: State = {
             "messages": st.session_state.messages,
             "current_step": "start"
         }
         
-        result = chatbot.invoke(state)
-        
-        # 응답 저장 및 표시
-        st.session_state.messages.append(result["messages"][-1])
-        with st.chat_message("assistant"):
-            st.write(result["messages"][-1].content)
+        try:
+            result = chatbot.invoke(state)
+            
+            st.session_state.messages.append(result["messages"][-1])
+            with st.chat_message("assistant"):
+                st.write(result["messages"][-1].content)
+        except Exception as e:
+            st.error(f"오류가 발생했습니다: {str(e)}")
 
 if __name__ == "__main__":
     main()
