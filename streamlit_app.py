@@ -31,14 +31,19 @@ def create_chatbot():
     # 상태 처리 함수
     def process_message(state: ChatState) -> ChatState:
         try:
-            messages = state.messages
-            response = model.invoke(messages)
-            return ChatState(
-                messages=messages + [response],
-                current_step="end"  # 처리 후 end로 상태 변경
-            )
+            if state.current_step == "start":
+                messages = state.messages
+                response = model.invoke(messages)
+                return ChatState(
+                    messages=messages + [response],
+                    current_step="end"
+                )
+            return state
         except Exception as e:
             raise RuntimeError(f"모델 응답 처리 중 오류 발생: {str(e)}")
+
+    def is_start(state: ChatState) -> bool:
+        return state.current_step == "start"
     
     # StateGraph 생성
     workflow = StateGraph(ChatState)
@@ -49,11 +54,15 @@ def create_chatbot():
     # 시작점 설정
     workflow.set_entry_point("process_message")
     
-    # 엣지 추가 - 수정된 부분
-    workflow.add_edge("process_message", "process_message")
-    
-    # 종료 조건 설정
-    workflow.set_finish_point("process_message")
+    # 조건부 라우팅
+    workflow.add_conditional_edges(
+        "process_message",
+        is_start,
+        {
+            True: "process_message",
+            False: END
+        }
+    )
     
     return workflow.compile()
 
@@ -77,12 +86,9 @@ def main():
     # 사용자 입력 처리
     if prompt := st.chat_input("메시지를 입력하세요"):
         user_message = HumanMessage(content=prompt)
-        st.session_state.messages.append(user_message)
-        
-        # 초기 상태 설정
         state = ChatState(
-            messages=st.session_state.messages,
-            current_step="start"
+            messages=st.session_state.messages + [user_message],
+            current_step="start"  # 상태를 start로 설정
         )
         
         try:
