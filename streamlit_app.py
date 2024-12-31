@@ -51,13 +51,10 @@ def create_chatbot():
     workflow.set_entry_point("process_message")
     
     # 엣지 정의
-    def router(state: ChatState) -> str:
-        # 다음으로 이동할 노드 이름을 반환
-        return "process_message"
-    
-    workflow.add_edge("process_message", "process_message", router)
+    workflow.add_edge("process_message", "process_message", None)
     
     return workflow.compile()
+
 
 
 # 메인 함수
