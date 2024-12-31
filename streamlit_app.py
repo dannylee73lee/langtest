@@ -4,9 +4,15 @@ from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import os
-from typing import List, Dict, Sequence
+from typing import List, Dict, Sequence, TypeVar, Annotated
+from pydantic import BaseModel, Field
 
 load_dotenv()
+
+# 상태 클래스 정의
+class ChatState(BaseModel):
+    messages: List[BaseMessage] = Field(default_factory=list)
+    current_step: str = Field(default="start")
 
 # 기본 설정
 if "messages" not in st.session_state:
@@ -16,19 +22,16 @@ def create_chatbot():
     model = ChatOpenAI()
     
     # 상태 처리 함수
-    def process_message(state: Dict) -> Dict:
-        messages = state["messages"]
+    def process_message(state: ChatState) -> ChatState:
+        messages = state.messages
         response = model.invoke(messages)
-        return {"messages": messages + [response], "current_step": "processed"}
-    
-    # 상태 정의
-    config = {
-        "messages": List[BaseMessage],
-        "current_step": str
-    }
+        return ChatState(
+            messages=messages + [response],
+            current_step="processed"
+        )
     
     # StateGraph 생성
-    workflow = StateGraph(config)
+    workflow = StateGraph(ChatState)
     
     # 노드 추가
     workflow.add_node("process_message", process_message)
@@ -37,7 +40,7 @@ def create_chatbot():
     workflow.set_entry_point("process_message")
     
     # 엣지 정의
-    def router(state: Dict) -> str:
+    def router(state: ChatState) -> str:
         return "process_message"
     
     workflow.add_edge("process_message", router)
@@ -59,19 +62,19 @@ def main():
         st.session_state.messages.append(user_message)
         
         # 초기 상태 설정
-        state = {
-            "messages": st.session_state.messages,
-            "current_step": "start"
-        }
+        state = ChatState(
+            messages=st.session_state.messages,
+            current_step="start"
+        )
         
         try:
             result = chatbot.invoke(state)
             
-            st.session_state.messages.append(result["messages"][-1])
+            st.session_state.messages.append(result.messages[-1])
             with st.chat_message("assistant"):
-                st.write(result["messages"][-1].content)
+                st.write(result.messages[-1].content)
         except Exception as e:
             st.error(f"오류가 발생했습니다: {str(e)}")
 
 if __name__ == "__main__":
-    main()
+    main()ok
