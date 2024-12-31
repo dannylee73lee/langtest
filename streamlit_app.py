@@ -23,7 +23,6 @@ if "messages" not in st.session_state:
 
 # 챗봇 생성 함수
 def create_chatbot():
-    # OpenAI 모델 설정
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
@@ -36,10 +35,14 @@ def create_chatbot():
             response = model.invoke(messages)
             return ChatState(
                 messages=messages + [response],
-                current_step="processed"
+                current_step="end"  # 처리 후 end로 상태 변경
             )
         except Exception as e:
             raise RuntimeError(f"모델 응답 처리 중 오류 발생: {str(e)}")
+    
+    # 조건 체크 함수
+    def should_continue(state: ChatState) -> bool:
+        return state.current_step != "end"
     
     # StateGraph 생성
     workflow = StateGraph(ChatState)
@@ -50,8 +53,11 @@ def create_chatbot():
     # 시작점 설정
     workflow.set_entry_point("process_message")
     
-    # 엣지 정의 - 수정된 부분
-    workflow.add_edge("process_message", "process_message")
+    # 조건부 엣지 추가
+    workflow.add_edge("process_message", "process_message", should_continue)
+    
+    # 종료 조건 설정
+    workflow.set_finish_point("process_message")
     
     return workflow.compile()
 
