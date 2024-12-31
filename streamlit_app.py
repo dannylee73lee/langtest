@@ -50,8 +50,8 @@ def create_chatbot():
     # 시작점 설정
     workflow.set_entry_point("process_message")
     
-    # 엣지 정의
-    workflow.add_edge("process_message", "process_message", None)
+    # 엣지 정의 - 수정된 부분
+    workflow.add_edge("process_message", "process_message")
     
     return workflow.compile()
 
