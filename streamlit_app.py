@@ -4,13 +4,14 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import os
-from typing import Dict, TypedDict
+from typing import Dict, TypedDict, Sequence, Union
+from langchain_core.messages import BaseMessage
 
 load_dotenv()
 
 # 상태 타입 정의
 class State(TypedDict):
-    messages: list
+    messages: Sequence[BaseMessage]
     current_step: str
 
 # 기본 설정
@@ -20,13 +21,18 @@ if "messages" not in st.session_state:
 def create_chatbot():
     model = ChatOpenAI()
     
-    def process_message(state: State) -> State:
+    def process_message(state: State) -> Dict:
         messages = state["messages"]
         response = model.invoke(messages)
         return {"messages": messages + [response], "current_step": "processed"}
     
-    # StateGraph 생성
-    workflow = StateGraph()
+    # StateGraph 생성 with schema
+    workflow = StateGraph(
+        state_schema={
+            "messages": Sequence[BaseMessage],
+            "current_step": str
+        }
+    )
     
     # 노드 추가
     workflow.add_node("process_message", process_message)
@@ -35,7 +41,10 @@ def create_chatbot():
     workflow.set_entry_point("process_message")
     
     # 엣지 추가
-    workflow.add_edge("process_message", "process_message")
+    def router(state: State) -> str:
+        return "process_message"
+
+    workflow.add_edge("process_message", router)
     
     return workflow.compile()
 
@@ -54,7 +63,7 @@ def main():
         st.session_state.messages.append(user_message)
         
         # 초기 상태 설정
-        state: State = {
+        state = {
             "messages": st.session_state.messages,
             "current_step": "start"
         }
